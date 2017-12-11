@@ -60,10 +60,17 @@ let rec typecheck_term (tenv : String.Set.t) (env : Type.t String.Map.t) (t : Te
      | (Type.Bool, Type.Bool) -> Type.Bool
      | _ -> raise (TypeError "Trying to logop on non-Bool"))
 
-   | Term.Lognot t ->
-      (match (typecheck_term tenv env t) with
-      | Type.Bool -> Type.Bool
-      | _ -> raise (TypeError "Trying to logop on non-Bool"))
+  | Term.Lognot t ->
+    (match (typecheck_term tenv env t) with
+     | Type.Bool -> Type.Bool
+     | _ -> raise (TypeError "Trying to logop on non-Bool"))
+
+  | Term.Comp (_, t1, t2) ->
+    let tau1 = typecheck_term tenv env t1 in
+    let tau2 = typecheck_term tenv env t2 in
+    (match (tau1, tau2) with
+     | (Type.Int, Type.Int) -> Type.Bool
+     | _ -> raise (TypeError "Trying to compare non-Int"))
 
    | Term.IfThenElse (cond, tt, tf) ->
      let taucond = typecheck_term tenv env cond in

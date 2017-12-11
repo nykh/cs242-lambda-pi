@@ -63,8 +63,8 @@ let rec trystep (t : Term.t) : outcome =
            let op =  match b with
              | Ast.And -> (&&) | Ast.Or -> (||)
            in
-           match (b, t1, t2) with
-           | (_, Term.Bool a, Term.Bool b) -> Step (Term.Bool (op a b))
+           match (t1, t2) with
+           | (Term.Bool a, Term.Bool b) -> Step (Term.Bool (op a b))
            | _ -> Err "Trying to perform logop on non-Bool"))
 
   | Term.Lognot t ->
@@ -76,6 +76,26 @@ let rec trystep (t : Term.t) : outcome =
         match t with
         | Term.Bool b -> Step (Term.Bool (not b))
         | _ -> Err "Trying to negate non-Bool")
+
+  | Term.Comp (c, t1, t2) ->
+    let s1 = trystep t1 in
+    (match s1 with
+     | Step t1' -> Step (Term.Comp (c, t1', t2))
+     | Err _ -> s1
+     | Val ->
+       let s2 = trystep t2 in
+       (match s2 with
+         | Step t2' -> Step (Term.Comp (c, t1, t2'))
+         | Err _ -> s2
+         | Val ->
+           let op =  match c with
+             | Ast.Gt -> (>) | Ast.Ge -> (>=)
+             | Ast.Eq -> (=) | Ast.Ne -> (<>)
+             | Ast.Le -> (<=) | Ast.Lt -> (<)
+           in
+           match (t1, t2) with
+           | (Term.Int a, Term.Int b) -> Step (Term.Bool (op a b))
+           | _ -> Err "Trying to compare non-Integer"))
 
    | Term.IfThenElse (cond, tt, tf) ->
     let s = trystep cond in

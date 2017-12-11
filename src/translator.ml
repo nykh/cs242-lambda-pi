@@ -20,9 +20,11 @@ let rec translate_term (t : Lang.Term.t) : IR.Term.t =
   | Lang.Term.Bool b -> IR.Term.Bool b
   | Lang.Term.Var v -> IR.Term.Var v
   | Lang.Term.Lam (v, t, e) -> IR.Term.Lam (v, translate_type t, translate_term e)
+  | Lang.Term.App (l, r) -> IR.Term.App (translate_term l, translate_term r)
   | Lang.Term.Binop (b, l, r) -> IR.Term.Binop (b, translate_term l, translate_term r)
   | Lang.Term.Logop (b, l, r) -> IR.Term.Logop (b, translate_term l, translate_term r)
   | Lang.Term.Lognot t -> IR.Term.Lognot (translate_term t)
+  | Lang.Term.Comp (b, l, r) -> IR.Term.Comp (b, translate_term l, translate_term r)
   | Lang.Term.IfThenElse (cond, tt, tf) ->
       IR.Term.IfThenElse (translate_term cond, translate_term tt, translate_term tf)
 

@@ -6,6 +6,9 @@ type binop = Add | Sub | Mul | Div
 type logop = And | Or
 [@@deriving sexp_of, sexp, compare]
 
+type comp = Gt | Ge | Eq | Ne | Le | Lt
+[@@deriving sexp_of, sexp, compare]
+
 module Lang = struct
   module Type = struct
     type t =
@@ -28,6 +31,7 @@ module Lang = struct
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
+      | Comp of comp * t * t
       | IfThenElse of t * t * t
     [@@deriving sexp_of, sexp, compare]
 
@@ -100,6 +104,7 @@ module IR = struct
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
+      | Comp of comp * t * t
       | IfThenElse of t * t * t
     [@@deriving sexp_of, sexp, compare]
 
@@ -115,6 +120,7 @@ module IR = struct
       | Binop (b, t1, t2) -> Binop (b, substitute x t' t1, substitute x t' t2)
       | Logop (b, t1, t2) -> Logop (b, substitute x t' t1, substitute x t' t2)
       | Lognot (t1) -> Lognot (substitute x t' t1)
+      | Comp (b, t1, t2) -> Comp (b, substitute x t' t1, substitute x t' t2)
       | IfThenElse (cond, tt, tf) ->
         IfThenElse (substitute x t' cond, substitute x t' tt, substitute x t' tf)
   end

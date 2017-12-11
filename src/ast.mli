@@ -6,6 +6,9 @@ type binop = Add | Sub | Mul | Div
 type logop = And | Or
 [@@deriving sexp_of, sexp, compare]
 
+type comp = Gt | Ge | Eq | Ne | Le | Lt
+[@@deriving sexp_of, sexp, compare]
+
 module Lang : sig
   module Type : sig
     type t =
@@ -28,6 +31,7 @@ module Lang : sig
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
+      | Comp of comp * t * t
       | IfThenElse of t * t * t
     [@@deriving sexp_of, sexp, compare]
 
@@ -59,6 +63,7 @@ module IR : sig
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
+      | Comp of comp * t * t
       | IfThenElse of t * t * t
     [@@deriving sexp_of, sexp, compare]
 

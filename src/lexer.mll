@@ -15,6 +15,12 @@ rule token = parse
 | '&' { AND }
 | '|' { OR }
 | '~' { NOT }
+| '>' { GT }
+| ">=" { GE }
+| '=' { EQ }
+| "<>" { NE }
+| "<=" { LE }
+| '<' { LT }
 | "fn" { FN }
 | "int" { TY_INT }
 | "bool" { TY_BOOL }
