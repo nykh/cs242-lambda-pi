@@ -14,7 +14,6 @@ module Lang : sig
     type t =
       | Int
       | Bool
-      | Var of string
       | Fn of t * t
     [@@deriving sexp_of, sexp, compare]
 
@@ -44,7 +43,6 @@ module IR : sig
     type t =
       | Int
       | Bool
-      | Var of string
       | Fn of t * t
     [@@deriving sexp_of, sexp, compare]
 

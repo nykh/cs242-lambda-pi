@@ -14,7 +14,6 @@ module Lang = struct
     type t =
       | Int
       | Bool
-      | Var of string
       | Fn of t * t
     [@@deriving sexp_of, sexp, compare]
 
@@ -45,7 +44,6 @@ module IR = struct
     type t =
       | Int
       | Bool
-      | Var of string
       | Fn of t * t
     [@@deriving sexp_of, sexp, compare]
 
@@ -65,11 +63,6 @@ module IR = struct
         match tau with
         | Int -> Int
         | Bool -> Bool
-        | Var x ->
-          Var (Int.to_string (
-            match String.Map.find depths x with
-            | Some n -> n
-            | None -> 0))
         | Fn (tau1, tau2) -> Fn (same_depth tau1, same_depth tau2)
       in
       aux String.Map.empty tau
@@ -79,7 +72,6 @@ module IR = struct
         match (tau1, tau2) with
         | (Int, Int) -> true
         | (Bool, Bool) -> true
-        | (Var x, Var x') -> x = x'
         | (Fn (arg1, ret1), Fn (arg2, ret2)) ->
           aequiv_aux arg1 arg2 && aequiv_aux ret1 ret2
         | _ -> false

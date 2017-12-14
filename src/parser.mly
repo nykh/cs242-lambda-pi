@@ -59,7 +59,6 @@ term:
 | LPAREN e = term RPAREN { e }
 
 ty:
-| v = VAR { Type.Var(v) }
 | TY_INT { Type.Int }
 | TY_BOOL { Type.Bool }
 | t1 = ty ARROW t2 = ty { Type.Fn(t1, t2) }

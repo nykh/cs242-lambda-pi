@@ -5,7 +5,6 @@ let rec translate_type (t : Lang.Type.t) : IR.Type.t =
   match t with
   | Lang.Type.Int -> IR.Type.Int
   | Lang.Type.Bool -> IR.Type.Bool
-  | Lang.Type.Var v -> IR.Type.Var v
   | Lang.Type.Fn (l, r) -> IR.Type.Fn (translate_type l, translate_type r)
 
 (* translate_term converts a term from the top-level language (Lang.Term.t) into

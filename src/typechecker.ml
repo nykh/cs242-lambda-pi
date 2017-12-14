@@ -6,9 +6,6 @@ exception TypeError of string
 (* Checks that a type is legal. *)
 let rec typecheck_type (tenv : String.Set.t) (tau : Type.t) : Type.t =
   match tau with
-   | Type.Var x ->
-     if Set.mem tenv x then tau
-     else raise (TypeError (Printf.sprintf "Unbound type variable %s" x))
    | Type.Int -> tau
    | Type.Bool -> tau
    | Type.Fn (t1, t2) -> Type.Fn (typecheck_type tenv t1, typecheck_type tenv t2)
