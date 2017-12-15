@@ -1,6 +1,5 @@
 %{
   open Ast.Lang
-  exception Unimplemented
 %}
 
 %token <string> VAR
@@ -29,6 +28,10 @@
 %token ELSE
 %token TY_INT
 %token TY_BOOL
+%token TY_STAR
+%token LET
+%token EQUAL
+%token IN
 %token <int> INT
 %token <bool> BOOL
 
@@ -38,31 +41,29 @@
 %right NOT
 %right ARROW
 
-%start <Ast.Lang.Term.t> main
+%start <Ast.Lang.Expr.t> main
 
 %%
 
 main:
-| e = term EOF { e }
+| e = expr EOF { e }
 
-term:
-| n = INT { Term.Int(n) }
-| b = BOOL { Term.Bool(b) }
-| v = VAR { Term.Var(v) }
-| e1 = term b = binop e2 = term { Term.Binop(b, e1, e2) }
-| e1 = term b = logop e2 = term { Term.Logop(b, e1, e2) }
-| e1 = term b = comp e2 = term { Term.Comp(b, e1, e2) }
-| b = NOT e = term { Term.Lognot(e) }
-| FN LPAREN v = VAR COLON t = ty RPAREN DOT e = term { Term.Lam(v, t, e) }
-| e1 = term e2 = term { Term.App(e1, e2) }
-| IF cond = term THEN tt = term ELSE tf = term { Term.IfThenElse(cond, tt, tf) }
-| LPAREN e = term RPAREN { e }
-
-ty:
-| TY_INT { Type.Int }
-| TY_BOOL { Type.Bool }
-| t1 = ty ARROW t2 = ty { Type.Fn(t1, t2) }
-| LPAREN t = ty RPAREN { t }
+expr:
+| n = INT { Expr.AInt(n) }
+| b = BOOL { Expr.ABool(b) }
+| v = VAR { Expr.Var(v) }
+| TY_INT { Expr.Int }
+| TY_BOOL { Expr.Bool }
+| TY_STAR { Expr.Kind Ast.Star }
+| e1 = expr b = binop e2 = expr { Expr.Binop(b, e1, e2) }
+| e1 = expr b = logop e2 = expr { Expr.Logop(b, e1, e2) }
+| e1 = expr b = comp e2 = expr { Expr.Comp(b, e1, e2) }
+| NOT e = expr { Expr.Lognot(e) }
+| FN LPAREN v = VAR COLON t = expr RPAREN DOT e = expr { Expr.Lam(v, t, e) }
+| e1 = expr e2 = expr { Expr.App(e1, e2) }
+| LET v = VAR COLON t = expr EQUAL e1 = expr IN e2 = expr { Expr.Let(v, t, e1, e2) }
+| IF cond = expr THEN tt = expr ELSE tf = expr { Expr.IfThenElse(cond, tt, tf) }
+| LPAREN e = expr RPAREN { e }
 
 %inline binop:
 | PLUS { Ast.Add }

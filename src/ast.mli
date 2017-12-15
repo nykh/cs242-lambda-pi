@@ -42,7 +42,6 @@ end
 module IR : sig
   module Expr : sig
     type t =
-      | Err
       | Int
       | Bool
       | AInt of int
@@ -68,6 +67,6 @@ module IR : sig
     val bequiv : t -> t -> bool
 
     val whnf : t -> t
-    val nf : t -> t
+    val nf : t -> (t, string) Result.t
   end
 end

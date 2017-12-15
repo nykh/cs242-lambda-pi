@@ -1,5 +1,7 @@
 open Core
 
+exception DivideByZeroExn
+
 type binop = Add | Sub | Mul | Div
 [@@deriving sexp_of, sexp, compare]
 
@@ -42,7 +44,6 @@ end
 module IR = struct
   module Expr = struct
     type t =
-      | Err
       | Int
       | Bool
       | AInt of int
@@ -62,7 +63,7 @@ module IR = struct
     let to_string t = Sexp.to_string_hum (sexp_of_t t)
 
     let rec freeVar t = match t with
-     | Int | Bool | AInt _ | ABool _ | Err -> String.Set.empty
+     | Int | Bool | AInt _ | ABool _ -> String.Set.empty
      | Binop (_, t1, t2) -> String.Set.union (freeVar t1) (freeVar t2)
      | Logop (_, t1, t2) -> freeVar (Binop (Add, t1, t2))
      | Comp (_, t1, t2) -> freeVar (Binop (Add, t1, t2))
@@ -94,7 +95,7 @@ module IR = struct
             con x' ty' (sub e)
       in
       let rec sub t = match t with
-        | Int | Bool | AInt _ | ABool _ | Err -> t
+        | Int | Bool | AInt _ | ABool _ -> t
         | Binop (op, t1, t2) -> Binop (op, sub t1, sub t2)
         | Logop (op, t1, t2) -> Logop (op, sub t1, sub t2)
         | Comp (op, t1, t2) -> Comp (op, sub t1, sub t2)
@@ -111,7 +112,6 @@ module IR = struct
     let subVar (x: sym) (x': sym) (t: t) : t = substitute x (Var x') t
 
     let rec aequiv t1 t2 = match (t1, t2) with
-      | (Err, _) | (_, Err) -> false
       | (Int, Int) | (Bool, Bool) -> true
       | (AInt t, AInt t') -> t = t'
       | (ABool t, ABool t') -> t = t'
@@ -138,54 +138,58 @@ module IR = struct
       in
       spine t []
 
-    let rec nf t =
+    let rec nf_exn t =
       let rec spine t ass = match t with
         | Binop (op, t1, t2) ->
           let f = match op with
             | Add -> (+) | Sub -> (-) | Mul -> ( * ) | Div -> (/)
-          in (match (op, nf t1, nf t2) with
-           | (Div, _, AInt 0) -> Err
+          in (match (op, nf_exn t1, nf_exn t2) with
+           | (Div, _, AInt 0) -> raise DivideByZeroExn
            | (_, AInt a, AInt b) -> AInt (f a b)
            | (op, t1', t2') -> Binop (op, t1', t2'))
         | Logop (op, t1, t2) ->
           let f = match op with
             | And -> (&&) | Or -> (||)
-          in (match (nf t1, nf t2) with
+          in (match (nf_exn t1, nf_exn t2) with
             | (ABool a, ABool b) -> ABool (f a b)
             | (t1', t2') -> Logop (op, t1', t2'))
         | Comp (op, t1, t2) ->
           let f = match op with
             | Gt -> (>) | Ge -> (>=) | Eq -> (=)
             | Ne -> (<>) | Le -> (<=) | Lt -> (<)
-          in (match (nf t1, nf t2) with
+          in (match (nf_exn t1, nf_exn t2) with
             | (AInt a, AInt b) -> ABool (f a b)
             | (t1', t2') -> Comp (op, t1', t2'))
-        | Lognot t -> (match nf t with
+        | Lognot t -> (match nf_exn t with
           | ABool b -> ABool (not b)
           | t' -> Lognot t')
         | IfThenElse (c, tt, tf) ->
-          (match nf c with
-            | ABool true -> nf tt
-            | ABool false -> nf tf
-            | c' -> IfThenElse (c', nf tt, nf tf))
+          (match nf_exn c with
+            | ABool true -> nf_exn tt
+            | ABool false -> nf_exn tf
+            | c' -> IfThenElse (c', nf_exn tt, nf_exn tf))
         | App (f, a) -> spine f (a::ass)
         | Lam (i, ty, e) -> (match ass with
-                            | [] -> Lam (i, nf ty, nf e)
+                            | [] -> Lam (i, nf_exn ty, nf_exn e)
                             | (x::xs) -> spine (substitute i x e) xs)
         | Pi (i, k, e) ->
-          let pi' = Pi (i, nf k, nf e) in
+          let pi' = Pi (i, nf_exn k, nf_exn e) in
           let app = fun f a -> App (f, a) in
-            List.fold_left (List.map ass ~f:nf) ~init:pi' ~f:app
+            List.fold_left (List.map ass ~f:nf_exn) ~init:pi' ~f:app
         | f -> let app = fun f a -> App (f, a) in
-          List.fold_left (List.map ass ~f:nf) ~init:f ~f:app
+          List.fold_left (List.map ass ~f:nf_exn) ~init:f ~f:app
       in
         spine t []
 
-    let bequiv t1 t2 = aequiv (nf t1) (nf t2)
+    let nf t = try Ok (nf_exn t) with
+      | DivideByZeroExn -> Error "divide by zero"
+
+    let bequiv t1 t2 = match (nf t1, nf t2) with
+      | Ok(a), Ok(b) -> aequiv a b
+      | _ -> false
 
     let inline_tests () =
       assert (aequiv (Binop (Div, AInt 1, AInt 0)) (Binop (Div, AInt 1, AInt 0)));
-      assert ((nf (Binop (Div, AInt 1, AInt 0))) = Err);
       assert (not (bequiv (Binop (Div, AInt 1, AInt 0)) (Binop (Div, AInt 1, AInt 0))))
 
     let () = inline_tests ()

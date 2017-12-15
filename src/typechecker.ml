@@ -12,7 +12,6 @@ let rec typecheck_expr (tenv : Expr.t String.Map.t) (e : Expr.t) : Expr.t =
       Expr.whnf t
   in
   match e with
-  | Expr.Err -> e
   | Expr.AInt _ -> Expr.Int
   | Expr.ABool _ -> Expr.Bool
   | Expr.Int | Expr.Bool -> Expr.Kind Ast.Star
@@ -118,6 +117,6 @@ let inline_tests () =
   assertType t6 (Expr.Pi ("X", Expr.Kind Ast.Star, Expr.Pi ("x", Expr.Var "X", Expr.Var "X")));
 
   let t7 = Expr.App (t6, Expr.Int) in
-  assertType t7 (Expr.Pi ("x", Expr.Int, Expr.Int))
+  assertType t7 (Expr.Pi ("x", Expr.Int, Expr.Int));
 
 let () = inline_tests ()

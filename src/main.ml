@@ -18,16 +18,16 @@ let run filename verbose =
   let input = In_channel.read_all filename in
   let result = parse input
     >>= fun term ->
-    log (Printf.sprintf "Term: %s\n" (Lang.Term.to_string term));
+    log (Printf.sprintf "Term: %s\n" (Lang.Expr.to_string term));
     let term = Translator.translate term in
-    log (Printf.sprintf "Translated: %s\n" (IR.Term.to_string term));
+    log (Printf.sprintf "Translated: %s\n" (IR.Expr.to_string term));
     Typechecker.typecheck term
     >>= fun ty ->
-    log (Printf.sprintf "Type: %s\n" (IR.Type.to_string ty));
-    Interpreter.eval term
+    log (Printf.sprintf "Type: %s\n" (IR.Expr.to_string ty));
+    IR.Expr.nf term
   in
   match result with
-  | Ok e -> Printf.printf "Success: %s\n" (IR.Term.to_string e)
+  | Ok e -> Printf.printf "Success: %s\n" (IR.Expr.to_string e)
   | Error s -> Printf.printf "Error: %s\n" s
 
 let main () =
