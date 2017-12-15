@@ -1,0 +1,1 @@
+let y : (x) int -> int = fn (x: int). true in y 3

@@ -1,0 +1,1 @@
+((fn (x: int) . fn (y: int) . x + y) 1) 2
