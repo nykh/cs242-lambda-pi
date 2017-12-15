@@ -5,13 +5,17 @@ let rec translate (t : Lang.Expr.t) : IR.Expr.t =
   match t with
   | Lang.Expr.Int -> IR.Expr.Int
   | Lang.Expr.Bool -> IR.Expr.Bool
+  | Lang.Expr.Vect (t, n) -> IR.Expr.Vect (translate t, n)
   | Lang.Expr.AInt n -> IR.Expr.AInt n
   | Lang.Expr.ABool b -> IR.Expr.ABool b
+  | Lang.Expr.AVect t -> IR.Expr.AVect t
   | Lang.Expr.Kind k -> IR.Expr.Kind k
   | Lang.Expr.Var v -> IR.Expr.Var v
   | Lang.Expr.Lam (v, t, e) -> IR.Expr.Lam (v, translate t, translate e)
   | Lang.Expr.Pi (v, k, e) -> IR.Expr.Pi (v, translate k, translate e)
   | Lang.Expr.App (l, r) -> IR.Expr.App (translate l, translate r)
+  | Lang.Expr.VectAdd (t1, t2) -> IR.Expr.VectAdd (translate t1, translate t2)
+  | Lang.Expr.VectCat (t1, t2) -> IR.Expr.VectCat (translate t1, translate t2)
   | Lang.Expr.Binop (b, l, r) -> IR.Expr.Binop (b, translate l, translate r)
   | Lang.Expr.Logop (b, l, r) -> IR.Expr.Logop (b, translate l, translate r)
   | Lang.Expr.Lognot t -> IR.Expr.Lognot (translate t)

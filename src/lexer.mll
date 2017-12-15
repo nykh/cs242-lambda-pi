@@ -6,8 +6,13 @@
 rule token = parse
 | [' ' '\t' '\n'] { token lexbuf }
 | '.' { DOT }
+| ',' { COMMA }
 | '(' { LPAREN }
 | ')' { RPAREN }
+| '[' { LBRACK }
+| ']' { RBRACK }
+| ".+" { VECTADD }
+| "++" { VECTCAT }
 | '+' { PLUS }
 | '-' { SUB }
 | '*' { STAR }
@@ -28,10 +33,12 @@ rule token = parse
 | "int" { TY_INT }
 | "bool" { TY_BOOL }
 | "star" { TY_STAR }
+| "vec" { TY_VECT }
 | "if" { IF }
 | "then" { THEN }
 | "else" { ELSE }
 | "->" { ARROW }
+| "$" { DOLLAR }
 | ":" { COLON }
 | "true" { BOOL (true) }
 | "false" { BOOL (false) }

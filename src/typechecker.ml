@@ -2,6 +2,7 @@ open Core
 open Ast.IR
 
 exception TypeError of string
+exception DimensionMismatchException
 
 let allowed _ _ = true
 
@@ -14,7 +15,8 @@ let rec typecheck_expr (tenv : Expr.t String.Map.t) (e : Expr.t) : Expr.t =
   match e with
   | Expr.AInt _ -> Expr.Int
   | Expr.ABool _ -> Expr.Bool
-  | Expr.Int | Expr.Bool -> Expr.Kind Ast.Star
+  | Expr.AVect t -> Expr.Vect (Expr.Int, List.length t)
+  | Expr.Int | Expr.Bool | Expr.Vect _ -> Expr.Kind Ast.Star
   | Expr.Kind Ast.Star -> Expr.Kind Ast.Box
   | Expr.Kind Ast.Box -> raise (TypeError "Encountered box")
 
@@ -45,6 +47,24 @@ let rec typecheck_expr (tenv : Expr.t String.Map.t) (e : Expr.t) : Expr.t =
        if (Expr.bequiv at at') then Expr.substitute x a rt
        else raise (TypeError "Argument is of incorrect type")
      | _ -> raise (TypeError "Trying to apply non-Function"))
+
+  | Expr.VectAdd (t1, t2) ->
+    let tau1 = typecheck_expr tenv t1 in
+    let tau2 = typecheck_expr tenv t2 in
+    (match (tau1, tau2) with
+     | (Expr.Vect (t, n), Expr.Vect (t', n')) ->
+        if (Expr.bequiv t t') && n = n' then Expr.Vect (t, n)
+        else raise DimensionMismatchException
+     | _ -> raise (TypeError "Trying to binop on non-Int"))
+
+  | Expr.VectCat (t1, t2) ->
+    let tau1 = typecheck_expr tenv t1 in
+    let tau2 = typecheck_expr tenv t2 in
+    (match (tau1, tau2) with
+     | (Expr.Vect (t, n), Expr.Vect (t', n')) ->
+        if (Expr.bequiv t t') then Expr.Vect (t, n + n')
+        else raise (TypeError "Type mismatch")
+     | _ -> raise (TypeError "Trying to binop on non-Int"))
 
   | Expr.Binop (_, t1, t2) ->
     let tau1 = typecheck_expr tenv t1 in

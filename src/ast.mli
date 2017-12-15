@@ -22,6 +22,10 @@ module Lang : sig
       | Bool
       | AInt of int
       | ABool of bool
+      | Vect of t * int
+      | AVect of int list
+      | VectAdd of t * t
+      | VectCat of t * t
       | Var of sym
       | Lam of sym * t * t
       | App of t * t
@@ -47,6 +51,10 @@ module IR : sig
       | Bool
       | AInt of int
       | ABool of bool
+      | Vect of t * int
+      | AVect of int list
+      | VectAdd of t * t
+      | VectCat of t * t
       | Var of sym
       | Lam of sym * t * t
       | App of t * t

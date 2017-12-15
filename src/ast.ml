@@ -24,6 +24,10 @@ module Lang = struct
       | Bool
       | AInt of int
       | ABool of bool
+      | Vect of t * int
+      | AVect of int list
+      | VectAdd of t * t
+      | VectCat of t * t
       | Var of sym
       | Lam of sym * t * t
       | App of t * t
@@ -49,6 +53,10 @@ module IR = struct
       | Bool
       | AInt of int
       | ABool of bool
+      | Vect of t * int
+      | AVect of int list
+      | VectAdd of t * t
+      | VectCat of t * t
       | Var of sym
       | Lam of sym * t * t
       | App of t * t
@@ -64,11 +72,13 @@ module IR = struct
     let to_string t = Sexp.to_string_hum (sexp_of_t t)
 
     let rec freeVar t = match t with
-     | Int | Bool | AInt _ | ABool _ -> String.Set.empty
+     | Int | Bool | Vect _ | AInt _ | ABool _ | AVect _ -> String.Set.empty
      | Binop (_, t1, t2) -> String.Set.union (freeVar t1) (freeVar t2)
      | Logop (_, t1, t2) -> freeVar (Binop (Add, t1, t2))
      | Comp (_, t1, t2) -> freeVar (Binop (Add, t1, t2))
      | Lognot t -> freeVar t
+     | VectAdd (v1, v2) -> String.Set.union (freeVar v1) (freeVar v2)
+     | VectCat (v1, v2) -> String.Set.union (freeVar v1) (freeVar v2)
      | IfThenElse (c, tt, tf) -> String.Set.union (freeVar c) (String.Set.union (freeVar tt) (freeVar tf))
      | Var x -> String.Set.singleton x
      | App (f, a) -> String.Set.union (freeVar f) (freeVar a)
@@ -96,11 +106,13 @@ module IR = struct
             con x' ty' (sub e)
       in
       let rec sub t = match t with
-        | Int | Bool | AInt _ | ABool _ -> t
+        | Int | Bool | Vect _ | AInt _ | ABool _ | AVect _ -> t
         | Binop (op, t1, t2) -> Binop (op, sub t1, sub t2)
         | Logop (op, t1, t2) -> Logop (op, sub t1, sub t2)
         | Comp (op, t1, t2) -> Comp (op, sub t1, sub t2)
         | Lognot t -> Lognot (sub t)
+        | VectAdd (v1, v2) -> VectAdd (sub v1, sub v2)
+        | VectCat (v1, v2) -> VectCat (sub v1, sub v2)
         | IfThenElse (c, tt, tf) -> IfThenElse (sub c, sub tt, sub tf)
         | Var i -> if x = i then t' else t
         | App (t1, t2) -> App (sub t1, sub t2)
@@ -114,12 +126,16 @@ module IR = struct
 
     let rec aequiv t1 t2 = match (t1, t2) with
       | (Int, Int) | (Bool, Bool) -> true
+      | (Vect (t, n), Vect (t', n')) -> (aequiv t t') && n = n'
       | (AInt t, AInt t') -> t = t'
       | (ABool t, ABool t') -> t = t'
+      | (AVect t, AVect t') -> List.equal t t' ~equal:(=)
       | (Binop (op, t1, t2), Binop (op', t1', t2')) -> op = op' && (aequiv t1 t1') && (aequiv t2 t2')
       | (Logop (op, t1, t2), Logop (op', t1', t2')) -> op = op' && (aequiv t1 t1') && (aequiv t2 t2')
       | (Comp (op, t1, t2), Comp (op', t1', t2')) -> op = op' && (aequiv t1 t1') && (aequiv t2 t2')
       | (Lognot t, Lognot t') -> t = t'
+      | (VectAdd (v1, v2), VectAdd (v1', v2')) -> (aequiv v1 v1') && (aequiv v2 v2')
+      | (VectCat (v1, v2), VectCat (v1', v2')) -> (aequiv v1 v1') && (aequiv v2 v2')
       | (IfThenElse (c, tt, tf), IfThenElse (c', tt', tf')) -> (aequiv c c') && (aequiv tt tt') && (aequiv tf tf')
       | (Var x, Var x') -> x = x'
       | (Kind k, Kind k') -> k = k'
@@ -141,6 +157,14 @@ module IR = struct
 
     let rec nf_exn t =
       let rec spine t ass = match t with
+        | VectAdd (v1, v2) ->
+          (match (nf_exn v1, nf_exn v2) with
+          | (AVect t1, AVect t2) -> (match List.map2 t1 t2 ~f:(+) with Ok(li) -> AVect li)
+          | (v1', v2') -> VectAdd (v1', v2'))
+        | VectCat (v1, v2) ->
+          (match (nf_exn v1, nf_exn v2) with
+          | (AVect t1, AVect t2) -> AVect (List.append t1 t2)
+          | (v1', v2') -> VectCat (v1', v2'))
         | Binop (op, t1, t2) ->
           let f = match op with
             | Add -> (+) | Sub -> (-) | Mul -> ( * ) | Div -> (/)
@@ -191,7 +215,10 @@ module IR = struct
 
     let inline_tests () =
       assert (aequiv (Binop (Div, AInt 1, AInt 0)) (Binop (Div, AInt 1, AInt 0)));
-      assert (not (bequiv (Binop (Div, AInt 1, AInt 0)) (Binop (Div, AInt 1, AInt 0))))
+      assert (not (bequiv (Binop (Div, AInt 1, AInt 0)) (Binop (Div, AInt 1, AInt 0))));
+
+      assert (aequiv (Vect (Int, 3)) (Vect (Int, 3)));
+      assert (not (aequiv (Vect (Int, 3)) (Vect (Int, 4))))
 
     let () = inline_tests ()
   end
