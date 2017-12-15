@@ -1,4 +1,4 @@
-let f : vec(3) -> vec(9) =
+let f : {xs} vec(3) -> vec(9) =
   fn (xs: vec(3)) . xs ++ xs ++ xs
 in
-  f [1, 2]
+  f [1, 2, 3]

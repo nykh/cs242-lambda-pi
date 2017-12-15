@@ -1,4 +1,4 @@
-let y : (x) int -> int =
+let y : {x} int -> int =
   (fn (X : star). (fn (x : X) . x)) int
 in
   y 2

@@ -28,6 +28,8 @@
 %token RPAREN
 %token LBRACK
 %token RBRACK
+%token LBRACE
+%token RBRACE
 %token COLON
 %token IF
 %token THEN
@@ -64,7 +66,6 @@ expr:
 | TY_BOOL { Expr.Bool }
 | TY_STAR { Expr.Kind Ast.Star }
 | TY_VECT LPAREN n = INT RPAREN { Expr.Vect (Expr.Int, n) }
-| t1 = expr ARROW t2 = expr { Expr.Fn(t1, t2) }
 | e1 = expr b = binop e2 = expr { Expr.Binop(b, e1, e2) }
 | e1 = expr b = logop e2 = expr { Expr.Logop(b, e1, e2) }
 | e1 = expr b = comp e2 = expr { Expr.Comp(b, e1, e2) }
@@ -74,9 +75,13 @@ expr:
 | FN LPAREN v = VAR COLON t = expr RPAREN DOT e = expr { Expr.Lam(v, t, e) }
 | e1 = expr e2 = expr { Expr.App(e1, e2) }
 | e1 = expr DOLLAR e2 = expr { Expr.App(e1, e2) }
-| LET v = VAR COLON t = expr EQUAL e1 = expr IN e2 = expr { Expr.Let(v, t, e1, e2) }
+| LET v = VAR COLON p = pat EQUAL e1 = expr IN e2 = expr { Expr.Let(v, p, e1, e2) }
 | IF cond = expr THEN tt = expr ELSE tf = expr { Expr.IfThenElse(cond, tt, tf) }
 | LPAREN e = expr RPAREN { e }
+
+%inline pat:
+| LBRACE v = VAR RBRACE t1 = expr ARROW t2 = expr { Expr.Pi(v, t1, t2) }
+| e = expr { e }
 
 %inline vect:
 | LBRACK xs = separated_list (COMMA, INT) RBRACK { xs }
