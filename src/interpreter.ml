@@ -115,7 +115,6 @@ let rec eval e =
   | Err s -> Error s
 
 let inline_tests () =
-  print_endline "Testing interpreter";
   (* Inline Tests from Assignment 3 *)
   let t1 = Term.Binop(Ast.Add, Term.Int 2, Term.Int 3) in
   assert (trystep t1 = Step(Term.Int 5));
@@ -125,7 +124,5 @@ let inline_tests () =
 
   let t3 = Term.Binop(Ast.Div, Term.Int 3, Term.Int 0) in
   assert (match trystep t3 with Err _ -> true | _ -> false);
-
-  print_endline "  all test pass"
 
 (* let () = inline_tests () *)

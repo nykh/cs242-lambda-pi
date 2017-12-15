@@ -1,4 +1,4 @@
 open Core
 open Ast
 
-val typecheck : IR.Term.t -> (IR.Type.t, string) Result.t
+val typecheck : IR.Expr.t -> (IR.Expr.t, string) Result.t

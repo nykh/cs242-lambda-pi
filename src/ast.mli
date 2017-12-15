@@ -9,29 +9,30 @@ type logop = And | Or
 type comp = Gt | Ge | Eq | Ne | Le | Lt
 [@@deriving sexp_of, sexp, compare]
 
+type sym = string
+[@@deriving sexp_of, sexp, compare]
+
+type kind = Star | Box
+[@@deriving sexp_of, sexp, compare]
+
 module Lang : sig
-  module Type : sig
+  module Expr : sig
     type t =
       | Int
       | Bool
-      | Fn of t * t
-    [@@deriving sexp_of, sexp, compare]
-
-    val to_string : t -> string
-  end
-
-  module Term : sig
-    type t =
-      | Int of int
-      | Bool of bool
-      | Var of string
-      | Lam of string * Type.t * t
+      | AInt of int
+      | ABool of bool
+      | Var of sym
+      | Lam of sym * t * t
       | App of t * t
+      | Pi of sym * t * t
+      | Kind of kind
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
       | Comp of comp * t * t
       | IfThenElse of t * t * t
+      | Let of sym * t * t * t
     [@@deriving sexp_of, sexp, compare]
 
     val to_string : t -> string
@@ -39,25 +40,18 @@ module Lang : sig
 end
 
 module IR : sig
-  module Type : sig
+  module Expr : sig
     type t =
+      | Err
       | Int
       | Bool
-      | Fn of t * t
-    [@@deriving sexp_of, sexp, compare]
-
-    val to_string : t -> string
-
-    val aequiv : t -> t -> bool
-  end
-
-  module Term : sig
-    type t =
-      | Int of int
-      | Bool of bool
-      | Var of string
-      | Lam of string * Type.t * t
+      | AInt of int
+      | ABool of bool
+      | Var of sym
+      | Lam of sym * t * t
       | App of t * t
+      | Pi of sym * t * t
+      | Kind of kind
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
@@ -67,6 +61,13 @@ module IR : sig
 
     val to_string : t -> string
 
-    val substitute : string -> t -> t -> t
+    val substitute : sym -> t -> t -> t
+
+    val aequiv : t -> t -> bool
+
+    val bequiv : t -> t -> bool
+
+    val whnf : t -> t
+    val nf : t -> t
   end
 end

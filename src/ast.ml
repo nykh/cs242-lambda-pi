@@ -9,90 +9,49 @@ type logop = And | Or
 type comp = Gt | Ge | Eq | Ne | Le | Lt
 [@@deriving sexp_of, sexp, compare]
 
+type sym = string
+[@@deriving sexp_of, sexp, compare]
+
+type kind = Star | Box
+[@@deriving sexp_of, sexp, compare]
+
 module Lang = struct
-  module Type = struct
+  module Expr = struct
     type t =
       | Int
       | Bool
-      | Fn of t * t
-    [@@deriving sexp_of, sexp, compare]
-
-    let to_string t = Sexp.to_string_hum (sexp_of_t t)
-  end
-
-  module Term = struct
-    type t =
-      | Int of int
-      | Bool of bool
-      | Var of string
-      | Lam of string * Type.t * t
+      | AInt of int
+      | ABool of bool
+      | Var of sym
+      | Lam of sym * t * t
       | App of t * t
+      | Pi of sym * t * t
+      | Kind of kind
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
       | Comp of comp * t * t
       | IfThenElse of t * t * t
+      | Let of sym * t * t * t
     [@@deriving sexp_of, sexp, compare]
 
     let to_string t = Sexp.to_string_hum (sexp_of_t t)
   end
 end
 
-
 module IR = struct
-  module Type = struct
+  module Expr = struct
     type t =
+      | Err
       | Int
       | Bool
-      | Fn of t * t
-    [@@deriving sexp_of, sexp, compare]
-
-    let to_string t = Sexp.to_string_hum (sexp_of_t t)
-
-    let to_debruijn (tau : t) : t =
-      let rec aux (depths : int String.Map.t) (tau : t) =
-        let same_depth = aux depths in
-        let incr_depth x tau =
-          aux
-            (String.Map.add
-               (String.Map.map depths ~f:(fun x -> x + 1))
-               ~key:x
-               ~data:0)
-          tau
-        in
-        match tau with
-        | Int -> Int
-        | Bool -> Bool
-        | Fn (tau1, tau2) -> Fn (same_depth tau1, same_depth tau2)
-      in
-      aux String.Map.empty tau
-
-    let aequiv (tau1 : t) (tau2 : t) : bool =
-      let rec aequiv_aux (tau1 : t) (tau2 : t) : bool =
-        match (tau1, tau2) with
-        | (Int, Int) -> true
-        | (Bool, Bool) -> true
-        | (Fn (arg1, ret1), Fn (arg2, ret2)) ->
-          aequiv_aux arg1 arg2 && aequiv_aux ret1 ret2
-        | _ -> false
-      in
-      aequiv_aux (to_debruijn tau1) (to_debruijn tau2)
-
-    let inline_tests () =
-      assert (aequiv Int Int);
-      assert (aequiv Bool Bool);
-      assert (aequiv (Fn (Int, Int)) (Fn (Int, Int)))
-
-    let () = inline_tests ()
-  end
-
-  module Term = struct
-    type t =
-      | Int of int
-      | Bool of bool
-      | Var of string
-      | Lam of string * Type.t * t
+      | AInt of int
+      | ABool of bool
+      | Var of sym
+      | Lam of sym * t * t
       | App of t * t
+      | Pi of sym * t * t
+      | Kind of kind
       | Binop of binop * t * t
       | Logop of logop * t * t
       | Lognot of t
@@ -102,18 +61,133 @@ module IR = struct
 
     let to_string t = Sexp.to_string_hum (sexp_of_t t)
 
+    let rec freeVar t = match t with
+     | Int | Bool | AInt _ | ABool _ | Err -> String.Set.empty
+     | Binop (_, t1, t2) -> String.Set.union (freeVar t1) (freeVar t2)
+     | Logop (_, t1, t2) -> freeVar (Binop (Add, t1, t2))
+     | Comp (_, t1, t2) -> freeVar (Binop (Add, t1, t2))
+     | Lognot t -> freeVar t
+     | IfThenElse (c, tt, tf) -> String.Set.union (freeVar c) (String.Set.union (freeVar tt) (freeVar tf))
+     | Var x -> String.Set.singleton x
+     | App (f, a) -> String.Set.union (freeVar f) (freeVar a)
+     | Lam (x, t, e) -> String.Set.union (freeVar t) (String.Set.remove (freeVar e) x)
+     | Pi (x, t, e) -> freeVar (Lam (x, t, e))
+     | Kind _ -> String.Set.empty
+
+    (* replace all *free* ocurrences of x with t' in t *)
     let rec substitute x t' t =
-      match t with
-      | Int _ -> t
-      | Bool _ -> t
-      | Var x' -> if x = x' then t' else t
-      | Lam (x', ty, body) -> if x = x' then t else Lam (x', ty, substitute x t' body)
-      | App (t1, t2) -> App (substitute x t' t1, substitute x t' t2)
-      | Binop (b, t1, t2) -> Binop (b, substitute x t' t1, substitute x t' t2)
-      | Logop (b, t1, t2) -> Logop (b, substitute x t' t1, substitute x t' t2)
-      | Lognot (t1) -> Lognot (substitute x t' t1)
-      | Comp (b, t1, t2) -> Comp (b, substitute x t' t1, substitute x t' t2)
-      | IfThenElse (cond, tt, tf) ->
-        IfThenElse (substitute x t' cond, substitute x t' tt, substitute x t' tf)
+      let fvx = freeVar t' in
+      let cloneSym x b =
+        let vars = String.Set.union fvx (freeVar b) in
+        let rec loop x = if String.Set.mem vars x then loop (x ^ "'") else x in
+        loop x
+      in
+      let abstr sub con x' ty e =
+        let ty' = sub ty in
+        if x = x' then con x ty' e
+        else
+          if String.Set.mem fvx x' then
+            let x'' = cloneSym x' e in
+            let e' = substitute x' (Var x'') e in
+            con x'' ty' (sub e')
+          else
+            con x' ty' (sub e)
+      in
+      let rec sub t = match t with
+        | Int | Bool | AInt _ | ABool _ | Err -> t
+        | Binop (op, t1, t2) -> Binop (op, sub t1, sub t2)
+        | Logop (op, t1, t2) -> Logop (op, sub t1, sub t2)
+        | Comp (op, t1, t2) -> Comp (op, sub t1, sub t2)
+        | Lognot t -> Lognot (sub t)
+        | IfThenElse (c, tt, tf) -> IfThenElse (sub c, sub tt, sub tf)
+        | Var i -> if x = i then t' else t
+        | App (t1, t2) -> App (sub t1, sub t2)
+        | Lam (i, ty, e) -> abstr sub (fun i ty e -> Lam (i, ty, e)) i ty e
+        | Pi (i, k, e) -> abstr sub (fun i k e -> Pi (i, k, e)) i k e
+        | Kind _ -> t
+      in
+        sub t
+
+    let subVar (x: sym) (x': sym) (t: t) : t = substitute x (Var x') t
+
+    let rec aequiv t1 t2 = match (t1, t2) with
+      | (Err, _) | (_, Err) -> false
+      | (Int, Int) | (Bool, Bool) -> true
+      | (AInt t, AInt t') -> t = t'
+      | (ABool t, ABool t') -> t = t'
+      | (Binop (op, t1, t2), Binop (op', t1', t2')) -> op = op' && (aequiv t1 t1') && (aequiv t2 t2')
+      | (Logop (op, t1, t2), Logop (op', t1', t2')) -> op = op' && (aequiv t1 t1') && (aequiv t2 t2')
+      | (Comp (op, t1, t2), Comp (op', t1', t2')) -> op = op' && (aequiv t1 t1') && (aequiv t2 t2')
+      | (Lognot t, Lognot t') -> t = t'
+      | (IfThenElse (c, tt, tf), IfThenElse (c', tt', tf')) -> (aequiv c c') && (aequiv tt tt') && (aequiv tf tf')
+      | (Var x, Var x') -> x = x'
+      | (Kind k, Kind k') -> k = k'
+      | (App (f, a), App (f', a')) -> (aequiv f f') && (aequiv a a')
+      | (Lam (x, ty, e), Lam (x', ty', e')) -> (ty = ty') && (aequiv e' (subVar x x' e))
+      | (Pi (x, ty, e), Pi (x', ty', e')) -> (ty = ty') && (aequiv e' (subVar x x' e))
+      | _ -> false
+
+    let whnf t =
+      let rec spine t ass = match t with
+        | App (f, a) -> spine f (a::ass)
+        | Lam (i, _, e) -> (match ass with
+                              | [] -> t
+                              | (x::xs) -> spine (substitute i x e) xs)
+        | f -> let app = fun f a -> App (f, a) in
+          List.fold_left ass ~init:f ~f:app
+      in
+      spine t []
+
+    let rec nf t =
+      let rec spine t ass = match t with
+        | Binop (op, t1, t2) ->
+          let f = match op with
+            | Add -> (+) | Sub -> (-) | Mul -> ( * ) | Div -> (/)
+          in (match (op, nf t1, nf t2) with
+           | (Div, _, AInt 0) -> Err
+           | (_, AInt a, AInt b) -> AInt (f a b)
+           | (op, t1', t2') -> Binop (op, t1', t2'))
+        | Logop (op, t1, t2) ->
+          let f = match op with
+            | And -> (&&) | Or -> (||)
+          in (match (nf t1, nf t2) with
+            | (ABool a, ABool b) -> ABool (f a b)
+            | (t1', t2') -> Logop (op, t1', t2'))
+        | Comp (op, t1, t2) ->
+          let f = match op with
+            | Gt -> (>) | Ge -> (>=) | Eq -> (=)
+            | Ne -> (<>) | Le -> (<=) | Lt -> (<)
+          in (match (nf t1, nf t2) with
+            | (AInt a, AInt b) -> ABool (f a b)
+            | (t1', t2') -> Comp (op, t1', t2'))
+        | Lognot t -> (match nf t with
+          | ABool b -> ABool (not b)
+          | t' -> Lognot t')
+        | IfThenElse (c, tt, tf) ->
+          (match nf c with
+            | ABool true -> nf tt
+            | ABool false -> nf tf
+            | c' -> IfThenElse (c', nf tt, nf tf))
+        | App (f, a) -> spine f (a::ass)
+        | Lam (i, ty, e) -> (match ass with
+                            | [] -> Lam (i, nf ty, nf e)
+                            | (x::xs) -> spine (substitute i x e) xs)
+        | Pi (i, k, e) ->
+          let pi' = Pi (i, nf k, nf e) in
+          let app = fun f a -> App (f, a) in
+            List.fold_left (List.map ass ~f:nf) ~init:pi' ~f:app
+        | f -> let app = fun f a -> App (f, a) in
+          List.fold_left (List.map ass ~f:nf) ~init:f ~f:app
+      in
+        spine t []
+
+    let bequiv t1 t2 = aequiv (nf t1) (nf t2)
+
+    let inline_tests () =
+      assert (aequiv (Binop (Div, AInt 1, AInt 0)) (Binop (Div, AInt 1, AInt 0)));
+      assert ((nf (Binop (Div, AInt 1, AInt 0))) = Err);
+      assert (not (bequiv (Binop (Div, AInt 1, AInt 0)) (Binop (Div, AInt 1, AInt 0))))
+
+    let () = inline_tests ()
   end
 end
