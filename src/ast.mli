@@ -33,6 +33,7 @@ module Lang : sig
       | Comp of comp * t * t
       | IfThenElse of t * t * t
       | Let of sym * t * t * t
+      | Fn of t * t
     [@@deriving sexp_of, sexp, compare]
 
     val to_string : t -> string

@@ -35,6 +35,7 @@ module Lang = struct
       | Comp of comp * t * t
       | IfThenElse of t * t * t
       | Let of sym * t * t * t
+      | Fn of t * t
     [@@deriving sexp_of, sexp, compare]
 
     let to_string t = Sexp.to_string_hum (sexp_of_t t)

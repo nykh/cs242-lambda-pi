@@ -117,6 +117,6 @@ let inline_tests () =
   assertType t6 (Expr.Pi ("X", Expr.Kind Ast.Star, Expr.Pi ("x", Expr.Var "X", Expr.Var "X")));
 
   let t7 = Expr.App (t6, Expr.Int) in
-  assertType t7 (Expr.Pi ("x", Expr.Int, Expr.Int));
+  assertType t7 (Expr.Pi ("x", Expr.Int, Expr.Int))
 
 let () = inline_tests ()

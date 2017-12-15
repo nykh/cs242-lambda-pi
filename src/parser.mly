@@ -55,6 +55,7 @@ expr:
 | TY_INT { Expr.Int }
 | TY_BOOL { Expr.Bool }
 | TY_STAR { Expr.Kind Ast.Star }
+| t1 = expr ARROW t2 = expr { Expr.Fn(t1, t2) }
 | e1 = expr b = binop e2 = expr { Expr.Binop(b, e1, e2) }
 | e1 = expr b = logop e2 = expr { Expr.Logop(b, e1, e2) }
 | e1 = expr b = comp e2 = expr { Expr.Comp(b, e1, e2) }
