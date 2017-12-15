@@ -10,6 +10,7 @@ let rec translate (t : Lang.Expr.t) : IR.Expr.t =
   | Lang.Expr.Kind k -> IR.Expr.Kind k
   | Lang.Expr.Var v -> IR.Expr.Var v
   | Lang.Expr.Lam (v, t, e) -> IR.Expr.Lam (v, translate t, translate e)
+  | Lang.Expr.Pi (v, k, e) -> IR.Expr.Pi (v, translate k, translate e)
   | Lang.Expr.App (l, r) -> IR.Expr.App (translate l, translate r)
   | Lang.Expr.Binop (b, l, r) -> IR.Expr.Binop (b, translate l, translate r)
   | Lang.Expr.Logop (b, l, r) -> IR.Expr.Logop (b, translate l, translate r)
@@ -22,8 +23,7 @@ let rec translate (t : Lang.Expr.t) : IR.Expr.t =
         | Lang.Expr.Fn (t1, t2) ->
           (match a with Lang.Expr.Lam (v, _, _) -> translate (Lang.Expr.Let (x, Lang.Expr.Pi (v, t1, t2), a, e)))
         | _ -> IR.Expr.App (IR.Expr.Lam (x, translate t, translate e), translate a)
-  | Lang.Expr.Fn _ -> t
-  
+
 let assert_print (t : Lang.Expr.t) (t' : IR.Expr.t) =
   let cond = translate (t) = t' in
     assert (if not cond then begin
